@@ -84,6 +84,8 @@ if($_SERVER["REQUEST_METHOD"]==="POST")
 
                 </form>
            </div>
+            <p class = "text-center mt-3" >Do have an account? <a href="login.php">Login here</a></p>
+
         </div>
 
         <script>

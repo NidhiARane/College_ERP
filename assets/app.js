@@ -1,96 +1,99 @@
-const API = "API/students.php";
 
-async function request(method, data)
-{
-    let url = API;
+const API = 'api/students.php';
 
-    if (method === "GET" && data?.id) {
-        url += "?id=" + data.id;
-    }
+async function loadStudents() {
+    const body = document.getElementById('studentTableBody');
+    const search = document.getElementById('search').value.toLowerCase();
 
-    const response = await fetch(url, {
-        method,
-        headers: {"Content-Type": "application/json"},
-        body: method === "GET" ? null : JSON.stringify(data)
-    });
+    try {
+        const res = await fetch(API);
+        if (!res.ok) throw Error('API error: ' + res.status);
 
-    return await response.json();
-}
+        const students = await res.json();
+        body.innerHTML = '';
 
-async function loadstudents()
-{
-    const table = document.getElementById("studentTableBody");
-    const students = await request("GET");
-    const search = document.getElementById("search").value.toLowerCase();
+        students.filter(s =>
+            [s.name, s.email, s.usn, s.course, s.semester]
+            .some(v => String(v).toLowerCase().includes(search))
+        ).forEach(s => {
+            const row = document.createElement('tr');
 
-    table.innerHTML = "";
+            [s.id, s.name, s.email, s.usn, s.course,
+             s.semester, s.phone || '-'].forEach(v => {
+                const td = document.createElement('td');
+                td.textContent = v;
+                row.appendChild(td);
+            });
 
-    students.filter(s =>
-        [s.name, s.email, s.usn, s.course, s.semester]
-        .some(v => String(v).toLowerCase().includes(search))
-    ).forEach(s => {
-        const row = document.createElement("tr");
+            const actions = document.createElement('td');
 
-        [s.id, s.name, s.email, s.usn, s.course, s.semester, s.phone || "N/A"]
-        .forEach(v => {
-            const td = document.createElement("td");
-            td.textContent = v;
-            row.appendChild(td);
+            const edit = document.createElement('button');
+            edit.textContent = 'Edit';
+            edit.className = 'btn btn-warning btn-sm me-1';
+            edit.onclick = () => editStudent(s);
+
+            const del = document.createElement('button');
+            del.textContent = 'Delete';
+            del.className = 'btn btn-danger btn-sm';
+            del.onclick = () => deleteStudent(s.user_id);
+
+            actions.append(edit, del);
+            row.appendChild(actions);
+            body.appendChild(row);
         });
 
-        const td = document.createElement("td");
-        td.innerHTML = `<button class="btn btn-warning btn-sm" onclick="editstudent(${s.id})">Edit</button>
-        <button class="btn btn-danger btn-sm" onclick="deletestudent(${s.id})">Delete</button>`;
+        if (!body.children.length)
+            body.innerHTML = '<tr><td colspan="8" class="text-center">No records found</td></tr>';
 
-        row.appendChild(td);
-        table.appendChild(row);
+    } catch (e) {
+        body.innerHTML = `<tr><td colspan="8" class="text-danger">${e.message}</td></tr>`;
+        console.error(e);
+    }
+}
+
+async function editStudent(s) {
+    const course = prompt('Course:', s.course);
+    if (course === null) return;
+
+    const semester = prompt('Semester:', s.semester);
+    if (semester === null) return;
+
+    const phone = prompt('Phone:', s.phone || '');
+    if (phone === null) return;
+
+    await fetch(API, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+                user_id: s.user_id,
+                usn:s.usn,
+                course,
+                semester,
+                phone
+            })
     });
 
-    if (!table.children.length)
-        table.innerHTML = '<tr><td colspan="8" class="text-center">No students found</td></tr>';
+    loadStudents();
 }
 
-async function deletestudent(id)
-{
-    if(confirm("Are you sure you want to delete this student?"))
-    {
-        await request("DELETE", {id});
-        loadstudents();
-    }
+async function deleteStudent(user_id) {
+    if (!confirm('Delete this student?')) return;
+
+    await fetch(API, {
+        method: 'DELETE',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({user_id: user_id})
+    });
+
+    loadStudents();
 }
 
-async function editstudent(id)
-{
-    
-        const student = await request("GET", {id});
-        const name = prompt("Enter new name:", student.name);
-        const email = prompt("Enter new email:", student.email);
-        const usn = prompt("Enter new usn:", student.usn);
-        const course = prompt("Enter new course:", student.course);
-        const semester = prompt("Enter new semester:", student.semester);
-        const phone = prompt("Enter new phone:", student.phone);
-        await request("PUT", {id, name, email, usn, course, semester, phone});
-        loadstudents();
-}
+// Search button and Enter key
+document.getElementById('searchBtn').onclick = loadStudents;
 
-async function addstudent()
-{
-    const name = prompt("Enter name:");
-    const email = prompt("Enter email:");
-    const usn = prompt("Enter usn:");
-    const course = prompt("Enter course:");
-    const semester = prompt("Enter semester:");
-    const phone = prompt("Enter phone:");
-    if(!name || !email || !usn || !course || !semester || !phone)
-    {
-        alert("Please fill in all fields.");
-        return;
-    }
-    await request("POST", {name, email, usn, course, semester, phone});
-    loadstudents();
-}
+document.getElementById('search').onkeyup = e => {
+    if (e.key === 'Enter') loadStudents();
+};
 
-    
-
-
-
+// Load records when page opens
+loadStudents();
